@@ -19,4 +19,4 @@ java FileExchangeSystem_Server
 ```
 java FileExchangeSystem_Client
 ```
-- To have multiple clients, run the client application in multiple instances of a command-line interface
+- To have multiple clients, run the client application in multiple separate instances of your command-line interface
