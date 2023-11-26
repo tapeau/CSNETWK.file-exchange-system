@@ -74,18 +74,18 @@ public class FileExchangeSystem_Client {
         // Declare variables
         String sServerAdd = "";
         int nServerPort = -1;
-        Socket socEndpoint = new Socket();
+        Socket socClient = new Socket();
         boolean bRegistered = false;
         boolean bContinue = true;
 
         // Main program loop
         do {
             // Scan for input
-            Scanner sInput = new Scanner(System.in);
-            sInput.useDelimiter(" ");
+            Scanner scInput = new Scanner(System.in);
+            scInput.useDelimiter(" ");
 
             // Evaluate input
-            String sCommand = sInput.next();
+            String sCommand = scInput.next();
             inputEval: switch (sCommand) {
                 
                 // '/?' command
@@ -94,7 +94,7 @@ public class FileExchangeSystem_Client {
                 // '/dir' command
                 case "/dir" -> {
                     // Check first if the client is connected to a server
-                    if (socEndpoint.isConnected() == false) {
+                    if (socClient.isConnected() == false) {
                         System.out.println("ERROR: You are not connected to a File Exchange server.");
                         break inputEval;
                     }
@@ -112,8 +112,8 @@ public class FileExchangeSystem_Client {
                 case "/exit" -> {
                     // First disconnect from connected server, if any
                     try {
-                        if (socEndpoint.isConnected()) {
-                            socEndpoint.close();
+                        if (socClient.isConnected()) {
+                            socClient.close();
                             bRegistered = false;
                             System.out.println("Disconnected from server at " + sServerAdd + ":" + nServerPort);
                         }
@@ -128,7 +128,7 @@ public class FileExchangeSystem_Client {
                 // '/get' command
                 case "/get" -> {
                     // Check first if the client is connected to a server
-                    if (socEndpoint.isConnected() == false) {
+                    if (socClient.isConnected() == false) {
                         System.out.println("ERROR: You are not connected to a File Exchange server.");
                         break inputEval;
                     }
@@ -145,17 +145,17 @@ public class FileExchangeSystem_Client {
                 // '/join' command
                 case "/join" -> {
                     // Check first if the client is already connected to a server
-                    if (socEndpoint.isConnected()) {
+                    if (socClient.isConnected()) {
                         System.out.println("ERROR: You are already connected to a File Exchange server.");
                         break inputEval;
                     }
 
                     // Get server IPv4 address
-                    if (sInput.hasNext() == false) {
+                    if (scInput.hasNext() == false) {
                         System.out.println("ERROR: You have not entered any IP address\n"
                                 + "Command format:\t/join [ip_address] [port]");
                     } else {
-                        sServerAdd = sInput.next();
+                        sServerAdd = scInput.next();
 
                         // Additional check if address is valid
                         if (isValidIPAddress(sServerAdd) == false) {
@@ -166,30 +166,30 @@ public class FileExchangeSystem_Client {
                     if (sServerAdd.isEmpty()) break inputEval;
 
                     // Get server port
-                    if (sInput.hasNext() == false) {
+                    if (scInput.hasNext() == false) {
                         System.out.println("ERROR: You have not entered any port number\n"
                                 + "Command format:\t/join [ip_address] [port]");
                     } else {
                         // Try-catch system for port number validation
                         try {
                             // Attempt to parse the string as an integer
-                            nServerPort = Integer.parseInt(sInput.next());
-                        } catch (NumberFormatException e1) {
+                            nServerPort = Integer.parseInt(scInput.next());
+                        } catch (NumberFormatException e) {
                             nServerPort = -1;
                         }
                     }
                     if (nServerPort == -1) break inputEval;
 
                     // Connect to the server
-                    connectSocket(socEndpoint, sServerAdd, nServerPort);
+                    connectSocket(socClient, sServerAdd, nServerPort);
                 }
                 
                 // '/leave' command
                 case "/leave" -> {
                     // Close the connection
                     try {
-                        if (socEndpoint.isConnected()) {
-                            socEndpoint.close();
+                        if (socClient.isConnected()) {
+                            socClient.close();
                             bRegistered = false;
                             System.out.println("Disconnected from server at " + sServerAdd + ":" + nServerPort);
                         } else {
@@ -203,7 +203,7 @@ public class FileExchangeSystem_Client {
                 // '/register' command
                 case "/register" -> {
                     // Check first if the client is connected to a server
-                    if (socEndpoint.isConnected() == false) {
+                    if (socClient.isConnected() == false) {
                         System.out.println("ERROR: You are not connected to a File Exchange server.");
                         break inputEval;
                     }
@@ -220,7 +220,7 @@ public class FileExchangeSystem_Client {
                 // '/rejoin' command
                 case "/rejoin" -> {
                     // Check first if the client is already connected to a server
-                    if (socEndpoint.isConnected()) {
+                    if (socClient.isConnected()) {
                         System.out.println("ERROR: You are already connected to a File Exchange server.");
                         break inputEval;
                     }
@@ -232,13 +232,13 @@ public class FileExchangeSystem_Client {
                     }
                     
                     // Connect to the previously-connected server
-                    connectSocket(socEndpoint, sServerAdd, nServerPort);
+                    connectSocket(socClient, sServerAdd, nServerPort);
                 }
                 
                 // '/store' command
                 case "/store" -> {
                     // Check first if the client is connected to a server
-                    if (socEndpoint.isConnected() == false) {
+                    if (socClient.isConnected() == false) {
                         System.out.println("ERROR: You are not connected to a File Exchange server.");
                         break inputEval;
                     }
