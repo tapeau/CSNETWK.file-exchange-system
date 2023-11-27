@@ -1,6 +1,9 @@
 // Machine Project Group 10
 // TAPIA, John Lorenzo N.
 // ARGAMOSA, Daniel Cedric S.
+
+package FileExchangeSystem;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -50,9 +53,31 @@ public class FileExchangeSystem_Server {
         System.out.println("Welcome!");
         
         // Declare variables
-        ServerSocket ssServer;
-        Socket socServer;
         int nServerPort = getPort();
+        String nServerAdd;
+        ServerSocket ssServer;
+        
+        // Establish server socket
+        try {
+            ssServer = new ServerSocket(nServerPort);
+            nServerAdd = ssServer.getInetAddress().getHostAddress();
+            System.out.println("Server" + nServerAdd + " - Listening to port " + nServerPort + ".");
+            
+            // Listen for client connections
+            while (true) {
+                // Accept incoming client connection
+                Socket socEndpoint = ssServer.accept();
+                System.out.println("Server" + nServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has connected.");
+                
+                // Place client connection into a separate File Exchange System Connection thread
+                FileExchangeSystem_Connection fsConnection = new FileExchangeSystem_Connection(socEndpoint);
+                
+                // Start the File Exchange System Connection thread to start client-server interactions
+                fsConnection.start();
+            }
+        } catch (IOException e) {
+            System.err.println("ERROR: " + e.getMessage());
+        }
         
         // TODO: Actual server functionalities
         
@@ -69,26 +94,26 @@ public class FileExchangeSystem_Server {
             ssServer = new ServerSocket(nServerPort);
 
             // Wait for Client 1
-            socServer = ssServer.accept();
+            socEndpoint = ssServer.accept();
 
-            System.out.println("Server: New client connected: " + socServer.getRemoteSocketAddress());
+            System.out.println("Server: New client connected: " + socEndpoint.getRemoteSocketAddress());
 
             // Get output stream of new client and store to array
-            serverStreams[serverIndex] = new DataOutputStream(socServer.getOutputStream());
+            serverStreams[serverIndex] = new DataOutputStream(socEndpoint.getOutputStream());
 
             // Get message from client and store to array
-            DataInputStream disReader = new DataInputStream(socServer.getInputStream());
+            DataInputStream disReader = new DataInputStream(socEndpoint.getInputStream());
             serverInputs[serverIndex] = disReader.readUTF();
             serverIndex++;
 
             // Wait for Client 2, then repeat procedures same as above
-            socServer = ssServer.accept();
+            socEndpoint = ssServer.accept();
 
-            System.out.println("Server: New client connected: " + socServer.getRemoteSocketAddress());
+            System.out.println("Server: New client connected: " + socEndpoint.getRemoteSocketAddress());
 
-            serverStreams[serverIndex] = new DataOutputStream(socServer.getOutputStream());
+            serverStreams[serverIndex] = new DataOutputStream(socEndpoint.getOutputStream());
 
-            disReader = new DataInputStream(socServer.getInputStream());
+            disReader = new DataInputStream(socEndpoint.getInputStream());
             serverInputs[serverIndex] = disReader.readUTF();
             serverIndex++;
 
@@ -103,7 +128,7 @@ public class FileExchangeSystem_Server {
                 serverStreams[0].flush();
 
                 // Close the server
-                socServer.close();
+                socEndpoint.close();
             }
         }
         catch (Exception e) {

@@ -6,10 +6,11 @@ A simple command-line file exchange system developed as Machine Project for DLSU
 - Daniel Cedric Argamosa
 
 ## Running the program
-1. Compile the two .java files
+1. Ensure the three .java files are in one folder, then compile them
 ```
 javac FileExchangeSystem_Client.java
 javac FileExchangeSystem_Server.java
+javac FileExchangeSystem_Connection.java
 ```
 2. In one instance of a command-line interface, run the server application
 ```
