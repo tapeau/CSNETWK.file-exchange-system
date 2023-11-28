@@ -107,9 +107,12 @@ public class FileExchangeSystem_Client {
 
         // Main program loop
         do {
+            System.out.println();
+            
             // Scan for input
             Scanner scInput = new Scanner(System.in);
             scInput.useDelimiter(" ");
+            System.out.println();
 
             // Evaluate input
             String sCommand = scInput.next();
@@ -121,38 +124,75 @@ public class FileExchangeSystem_Client {
                 case "/dir" -> {
                     // Check if (1) the client is connected to a server, (2) if the client is registered to the server
                     if (socEndpoint.isConnected() == false) {
-                        System.out.println("ERROR: You are not connected to a File Exchange server.");
+                        System.out.println("ERROR: You are not connected to any File Exchange server.");
                     } else if (sClientAlias.isEmpty()) {
                         System.out.println("ERROR: You are not yet registered to this File Exchange server.");
                     } else {
-                        // TODO: Get file directory from server
+                        try {
+                            // Send request to server for its file directory
+                            dosOutput.writeUTF("D");
+                            
+                            // Get the first response of server, which for this case should be an integer
+                            // indicating the amount of files in the server
+                            int nFileAmount = disInput.readInt();
+                            
+                            // Evaluate first response
+                            if (nFileAmount == 0) {
+                                System.out.println("Server directory is currently empty.");
+                            } else {
+                                System.out.println("List of current files in the server:");
+                                // Print each file name received from the server
+                                // up until nFirstResponse, which should contain the number of files in the server
+                                for (int i = 0; i < nFileAmount; i++) {
+                                    String sResponse = disInput.readUTF();
+                                    
+                                    // Check if the server sent the fail code, otherwise print the file name
+                                    if (sResponse.equals("*")) {
+                                        System.out.println("ERROR: An error occurred in the server.");
+                                        i = nFileAmount; // Terminate loop
+                                    } else {
+                                        System.out.println(sResponse);
+                                    }
+                                }
+                            }
+                        } catch (IOException e) {
+                            System.err.println("I/O ERROR: " + e.getMessage());
+                        }
                     }
                 }
                 
                 // '/exit' command
                 case "/exit" -> {
-                    // First disconnect from connected server, if any
-                    try {
-                        if (socEndpoint.isConnected()) {
+                    // Halt continuation of program
+                    bContinue = false;
+                     
+                    // Check if the client is connected to any server
+                    if (socEndpoint.isConnected()) {
+                        // Execute client disconnection protocol
+                        try {
+                            // Notify server that client will be disconnecting
+                            dosOutput.writeUTF("L");
+                            
+                            // Close the connection
                             socEndpoint.close();
                             disInput = null;
                             dosOutput = null;
+                            
+                            // Reset client alias
                             sClientAlias = "";
+                            
                             System.out.println("Disconnected from server at " + sServerAdd + ":" + nServerPort);
+                        } catch (IOException e) {
+                            System.err.println("I/O ERROR: " + e.getMessage());
                         }
-                    } catch (IOException e) {
-                        System.err.println("I/O ERROR: " + e.getMessage());
                     }
-                    
-                    // Halt continuation of program
-                    bContinue = false;
                 }
                 
                 // '/get' command
                 case "/get" -> {
                     // Check if (1) the client is connected to a server, (2) the client is registered to the server
                     if (socEndpoint.isConnected() == false) {
-                        System.out.println("ERROR: You are not connected to a File Exchange server.");
+                        System.out.println("ERROR: You are not connected to any File Exchange server.");
                     } else if (sClientAlias.isEmpty()) {
                         System.out.println("ERROR: You are not yet registered to this File Exchange server.");
                     } else {
@@ -202,14 +242,20 @@ public class FileExchangeSystem_Client {
                 case "/leave" -> {
                     // Check if the client is not connected to any server
                     if (socEndpoint.isConnected() == false) {
-                        System.out.println("ERROR: You are not currently connected to any File Exchange server.");
+                        System.out.println("ERROR: You are not connected to any File Exchange server.");
                     } else {
-                        // Close the connection
                         try {
+                            // Notify server that client will be disconnecting
+                            dosOutput.writeUTF("L");
+                            
+                            // Close the connection
                             socEndpoint.close();
                             disInput = null;
                             dosOutput = null;
+                            
+                            // Reset client alias
                             sClientAlias = "";
+                            
                             System.out.println("Disconnected from server at " + sServerAdd + ":" + nServerPort);
                         } catch (IOException e) {
                             System.err.println("I/O ERROR: " + e.getMessage());
@@ -221,7 +267,7 @@ public class FileExchangeSystem_Client {
                 case "/register" -> {
                     // Check if (1) the client is connected to a server, (2) the client is already registered to the server, and (3) the user entered an alias
                     if (socEndpoint.isConnected() == false) {
-                        System.out.println("ERROR: You are not connected to a File Exchange server.");
+                        System.out.println("ERROR: You are not connected to any File Exchange server.");
                     } else if (sClientAlias.isEmpty() == false) {
                         System.out.println("ERROR: You are already registered to this File Exchange server.");
                     } else if (scInput.hasNext() == false) {
@@ -239,14 +285,14 @@ public class FileExchangeSystem_Client {
                             
                             // Evaluate server response
                             switch (cResponse) {
-                                case 'S' -> System.out.println("You have successfully registered to the server with the alias " + sClientAlias);
+                                case '/' -> System.out.println("You have successfully registered to the server with the alias " + sClientAlias);
                                 
-                                case 'T' -> {
+                                case ':' -> {
                                     System.out.println("ERROR: The alias " + sClientAlias + " is already taken in this server.");
                                     sClientAlias = ""; // Reset client alias if it is taken
                                 }
                                 
-                                case 'F' -> {
+                                case '*' -> {
                                     System.out.println("ERROR: An error occurred in the server.");
                                     sClientAlias = ""; // Reset client alias in the event of an error
                                 }
@@ -276,7 +322,7 @@ public class FileExchangeSystem_Client {
                 case "/store" -> {
                     // Check if (1) the client is connected to a server, (2) the client is registered to the server
                     if (socEndpoint.isConnected() == false) {
-                        System.out.println("ERROR: You are not connected to a File Exchange server.");
+                        System.out.println("ERROR: You are not connected to any File Exchange server.");
                     } else if (sClientAlias.isEmpty()) {
                         System.out.println("ERROR: You are not yet registered to this File Exchange server.");
                     } else {

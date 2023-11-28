@@ -58,18 +58,53 @@ public class FileExchangeSystem_Connection extends Thread {
                 // Read command from message
                 cCommand = sMessage.charAt(0);
                 
+                /*
+                -----------------------------------------
+                SERVER RESPONSE GUIDE
+
+                RESPONSE            MEANING
+                /                   Success
+                *                   Fail or Error
+                -----------------------------------------
+                */
+                
                 // Evaluate client input
                 switch (cCommand) {
                     case 'D' -> {
-                        // TODO: Send file directory to client
+                        // Create a File object for the directory "./files" where the files of the server (that are available for exchange) are stored
+                        File filDirectoryPath = new File("./files");
+                        
+                        // Get a list of all files inside directory "./files" and store in an array
+                        File[] filDirectory = filDirectoryPath.listFiles();
+                        
+                        try {
+                            // First send the amount of file names to be expected by the client
+                            dosOutput.writeInt(filDirectory.length);
+
+                            // If-statement to send file names only if the directory is not empty
+                            if (filDirectory.length != 0) {
+                                // Iterate through the list of files and folders
+                                for (File file : filDirectory) {
+                                    // Send each file name to the client
+                                    dosOutput.writeUTF(file.getName());
+                                }
+                            }
+                        } catch (IOException e) {
+                            System.err.println("I/O ERROR: " + e.getMessage());
+                            dosOutput.writeUTF("*");
+                        }
                     }
                     
                     case 'F' -> {
-                        // TODO: Send requested file to client
+                        // TODO: Send file to client
                     }
                     
                     case 'L' -> {
-                        // TODO: Close connection to client
+                        // Close connection with client
+                        socEndpoint.close();
+                        
+                        // Halt continuation of server thread
+                        bContinue = false;
                     }
                     
                     case 'R' -> {
@@ -78,8 +113,8 @@ public class FileExchangeSystem_Connection extends Thread {
                             String sAliasGiven = sMessage.substring(1);
 
                             // Find local file "alias.txt" which contains all aliases already in use
-                            File fAliasList = new File("alias.txt");
-                            Scanner scFile = new Scanner(fAliasList);
+                            File filAliases = new File("alias.txt");
+                            Scanner scFile = new Scanner(filAliases);
                             boolean bAliasFree = true;
 
                             // Scan "alias.txt"
@@ -93,18 +128,15 @@ public class FileExchangeSystem_Connection extends Thread {
                             }
                             
                             // If given alias is already in use, send fail message to client, otherwise send success message
-                            // GUIDE:
-                            // S = Success
-                            // F = Fail
-                            // T = Taken (Alias is taken)
+                            // ':' = Taken (Alias is taken)
                             if (bAliasFree == false) {
-                                dosOutput.writeChar('T');
+                                dosOutput.writeChar(':');
                             } else {
-                                dosOutput.writeChar('S');
+                                dosOutput.writeChar('/');
                             }
                         } catch (FileNotFoundException e) {
                             System.err.println("ERROR: File \"alias.txt\" not found.");
-                            dosOutput.writeChar('F');
+                            dosOutput.writeChar('*');
                         }
                     }
                     
