@@ -2,7 +2,7 @@
 // TAPIA, John Lorenzo N.
 // ARGAMOSA, Daniel Cedric S.
 
-package FileExchangeSystem;
+package FileExchangeSystem_Server;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -35,7 +35,7 @@ public class FileExchangeSystem_Server {
                 }
             } catch (InputMismatchException e) {
                 System.err.println("ERROR: " + e.getMessage());
-                nInput = 0;
+                nInput = -1;
             }
         } while (nInput <= 0);
         
@@ -70,10 +70,10 @@ public class FileExchangeSystem_Server {
                 System.out.println("Server" + nServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has connected.");
                 
                 // Place client connection into a separate File Exchange System Connection thread
-                FileExchangeSystem_Connection fsConnection = new FileExchangeSystem_Connection(socEndpoint);
+                FileExchangeSystem_Connection fescConnection = new FileExchangeSystem_Connection(socEndpoint);
                 
                 // Start the File Exchange System Connection thread to start client-server interactions
-                fsConnection.start();
+                fescConnection.start();
             }
         } catch (IOException e) {
             System.err.println("ERROR: " + e.getMessage());
