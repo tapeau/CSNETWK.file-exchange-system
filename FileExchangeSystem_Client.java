@@ -233,17 +233,17 @@ public class FileExchangeSystem_Client {
                             if (nFileSize == -1) {
                                 System.out.println("ERROR: The requested file does not exist in the File Exchange server.");
                             } else {
-                                // TODO: COMPLETE REWORK
+                                // Create local file
                                 FileOutputStream fosFile = new FileOutputStream(sFileName);
                                 
-                                // Receive file byte buffer from server and write it to the local created file
-                                byte[] byFileBuffer = new byte[nFileSize];
+                                // Receive file contents from server in a buffer and write it to local file
+                                byte[] byFileBuffer = new byte[4096];
                                 int bytesRead;
-                                while ((bytesRead = disInput.read(byFileBuffer)) != -1) {
+                                while (nFileSize > 0 && (bytesRead = disInput.read(byFileBuffer, 0, (int) Math.min(byFileBuffer.length, nFileSize))) != -1) {
                                     fosFile.write(byFileBuffer, 0, bytesRead);
+                                    nFileSize -= bytesRead;
                                 }
                                 
-                                fosFile.close();
                                 System.out.println("File \"" + sFileName + "\" has been successfully downloaded.");
                             }
                         } catch (IOException e) {
@@ -428,17 +428,21 @@ public class FileExchangeSystem_Client {
                                 
                                 // After sending the size of the file, then send the actual contents of the file
                                 // First convert the file into a FileInputStream object
-                                FileInputStream fisFile = new FileInputStream(sFileName);
-                                
-                                // Convert the file into a byte buffer and feed it into the file input stream
-                                byte[] byFileBuffer = new byte[fisFile.available()];
-                                fisFile.read(byFileBuffer);
-                                
-                                // Send the buffered file contents to the client
-                                dosOutput.write(byFileBuffer, 0, byFileBuffer.length);
-                                dosOutput.flush();
-                                
-                                System.out.println("File \"" + sFileName + "\" has been successfully uploaded to the server.");
+                                try (FileInputStream fisFile = new FileInputStream(sFileName)) {
+                                    // Set transfer buffer to 4 MB at a time
+                                    byte[] byFileBuffer = new byte[4096];
+                                    int bytesRead;
+
+                                    // Read and send the contents of the file in a buffer
+                                    while ((bytesRead = fisFile.read(byFileBuffer)) != -1) {
+                                        dosOutput.write(byFileBuffer, 0, bytesRead);
+                                    }
+                                    
+                                    System.out.println("File \"" + sFileName + "\" has been successfully uploaded to the server.");
+                                    
+                                } catch (IOException e) {
+                                    System.err.println("I/O ERROR: " + e.getMessage());
+                                }
                             }
                         } catch (IOException e) {
                             System.err.println("I/O ERROR: " + e.getMessage());

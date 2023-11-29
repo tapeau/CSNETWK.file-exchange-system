@@ -130,26 +130,17 @@ public class FileExchangeSystem_Connection extends Thread {
                             } else {
                                 dosOutput.writeInt((int)filRequested.length());
                                 
-                                // TODO: COMPLETE REWORK
-                                
                                 // After sending the size of the file, then send the actual contents of the file
                                 // First convert the file into a FileInputStream object
                                 try (FileInputStream fisFile = new FileInputStream(sFileName)) {
-                                    // Set transfer buffer to 2 MB at a time
-                                    byte[] byFileBuffer = new byte[2048];
+                                    // Set transfer buffer to 4 MB at a time
+                                    byte[] byFileBuffer = new byte[4096];
                                     int bytesRead;
 
-                                    // Read and send the initial chunk
-                                    bytesRead = fisFile.read(byFileBuffer);
-                                    dosOutput.write(byFileBuffer, 0, bytesRead);
-
-                                    // Continue reading and sending the rest of the file
+                                    // Read and send the contents of the file in a buffer
                                     while ((bytesRead = fisFile.read(byFileBuffer)) != -1) {
-                                        // Send the buffered file contents to the client
                                         dosOutput.write(byFileBuffer, 0, bytesRead);
                                     }
-
-                                    dosOutput.flush();
                                 } catch (IOException e) {
                                     System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
                                 }
@@ -212,8 +203,20 @@ public class FileExchangeSystem_Connection extends Thread {
                             // Get name of incoming file
                             String sFileName = "./files/" + sMessage.substring(1);
                             
-                            // Receive file from client
-                            Files.copy(disInput, Path.of(sFileName), StandardCopyOption.REPLACE_EXISTING);
+                            // Get size of incoming file
+                            int nFileSize = disInput.readInt();
+                            
+                            // Create local file
+                            FileOutputStream fosFile = new FileOutputStream(sFileName);
+
+                            // Receive file contents from client in a buffer and write it to local file
+                            byte[] byFileBuffer = new byte[4096];
+                            int bytesRead;
+                            while (nFileSize > 0 && (bytesRead = disInput.read(byFileBuffer, 0, (int) Math.min(byFileBuffer.length, nFileSize))) != -1) {
+                                fosFile.write(byFileBuffer, 0, bytesRead);
+                                nFileSize -= bytesRead;
+                            }
+
                             System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - \"" + sClientAlias + "\" has uploaded file \"" + sMessage.substring(1) + "\".");
                             
                         } catch (IOException e) {
