@@ -5,14 +5,6 @@ A simple command-line file exchange system developed as Machine Project for DLSU
 - John Lorenzo Tapia
 - Daniel Cedric Argamosa
 
-## Compiling the program (both client and server)
-1. Clone this repository
-2. Open your Terminal in the directory of the repository
-3. Compile the programs
-```
-javac -d . *.java
-```
-
 ## Running the server
 1. Open a Terminal interface in the directory of the repository
 2. Run the server application

@@ -9,20 +9,30 @@ import java.io.DataOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 public class FileExchangeSystem_Connection extends Thread {
     // Client socket of the connection
     private final Socket socEndpoint;
+    
+    // Client alias of the connection
+    private String sClientAlias = "";
     
     // Address of the server who owns the connection (for logging purposes)
     private final String sServerAdd;
     
     // ArrayList of strings containing aliases that are already in use (inherited from server)
     private final ArrayList<String> sAliasList;
+    
+    // Date/Time formatter for logging purposes
+    private final DateTimeFormatter dtfTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     
     // Constructor function
     public FileExchangeSystem_Connection(Socket soc, String add, int port, ArrayList<String> arr) {
@@ -99,9 +109,9 @@ public class FileExchangeSystem_Connection extends Thread {
                                 }
                             }
                             
-                            System.out.println("Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has requested for server file directory.");
+                            System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - \"" + sClientAlias + "\" has requested for server file directory.");
                         } catch (IOException e) {
-                            System.err.println("I/O ERROR: " + e.getMessage());
+                            System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
                             dosOutput.writeUTF("*");
                         }
                     }
@@ -120,22 +130,34 @@ public class FileExchangeSystem_Connection extends Thread {
                             } else {
                                 dosOutput.writeInt((int)filRequested.length());
                                 
+                                // TODO: COMPLETE REWORK
+                                
                                 // After sending the size of the file, then send the actual contents of the file
                                 // First convert the file into a FileInputStream object
-                                FileInputStream fisFile = new FileInputStream(sFileName);
+                                try (FileInputStream fisFile = new FileInputStream(sFileName)) {
+                                    // Set transfer buffer to 2 MB at a time
+                                    byte[] byFileBuffer = new byte[2048];
+                                    int bytesRead;
+
+                                    // Read and send the initial chunk
+                                    bytesRead = fisFile.read(byFileBuffer);
+                                    dosOutput.write(byFileBuffer, 0, bytesRead);
+
+                                    // Continue reading and sending the rest of the file
+                                    while ((bytesRead = fisFile.read(byFileBuffer)) != -1) {
+                                        // Send the buffered file contents to the client
+                                        dosOutput.write(byFileBuffer, 0, bytesRead);
+                                    }
+
+                                    dosOutput.flush();
+                                } catch (IOException e) {
+                                    System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
+                                }
                                 
-                                // Convert the file into a byte buffer and feed it into the file input stream
-                                byte[] byFileBuffer = new byte[fisFile.available()];
-                                fisFile.read(byFileBuffer);
-                                
-                                // Send the buffered file contents to the client
-                                dosOutput.write(byFileBuffer, 0, byFileBuffer.length);
-                                dosOutput.flush();
-                                
-                                System.out.println("Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has downloaded file \"" + sFileName + "\".");
+                                System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - \"" + sClientAlias + "\" has downloaded file \"" + sMessage.substring(1) + "\".");
                             }
                         } catch (IOException e) {
-                            System.err.println("I/O ERROR: " + e.getMessage());
+                            System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
                         }
                     }
                     
@@ -145,10 +167,15 @@ public class FileExchangeSystem_Connection extends Thread {
                             sAliasList.remove(sMessage.substring(1));
                             
                             // Close connection with client
-                            System.out.println("Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has disconnected.");
+                            if (sClientAlias.isEmpty()) {
+                                System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has disconnected.");
+                            } else {
+                                System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - \"" + sClientAlias + "\" has disconnected.");
+                            }
+                            
                             socEndpoint.close();
                         } catch (IOException e) {
-                            System.err.println("I/O ERROR: " + e.getMessage());
+                            System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
                         }
                         // Halt continuation of server thread
                         bContinue = false;
@@ -167,12 +194,15 @@ public class FileExchangeSystem_Connection extends Thread {
                                 // Add new alias to the server's alias list
                                 sAliasList.add(sAliasGiven);
                                 
+                                // Set alias to the connection's client alias
+                                sClientAlias = sAliasGiven;
+                                
                                 // Send success message to client
                                 dosOutput.writeChar('/');
-                                System.out.println("Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has registered with alias \"" + sAliasGiven + "\".");
+                                System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has registered with alias \"" + sAliasGiven + "\".");
                             }
-                        } catch (FileNotFoundException e) {
-                            System.err.println("ERROR: File \"alias.txt\" not found.");
+                        } catch (IOException e) {
+                            System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
                             dosOutput.writeChar('*');
                         }
                     }
@@ -182,28 +212,18 @@ public class FileExchangeSystem_Connection extends Thread {
                             // Get name of incoming file
                             String sFileName = "./files/" + sMessage.substring(1);
                             
-                            // Get size of incoming file
-                            int nFileSize = disInput.readInt();
+                            // Receive file from client
+                            Files.copy(disInput, Path.of(sFileName), StandardCopyOption.REPLACE_EXISTING);
+                            System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + " - \"" + sClientAlias + "\" has uploaded file \"" + sMessage.substring(1) + "\".");
                             
-                            // Create a file with the name sFileName
-                            FileOutputStream fosFile = new FileOutputStream(sFileName);
-                            
-                            // Receive file byte buffer from server and write it to the local created file
-                            byte[] byFileBuffer = new byte[nFileSize];
-                            int bytesRead;
-                            while ((bytesRead = disInput.read(byFileBuffer)) != -1) {
-                                fosFile.write(byFileBuffer, 0, bytesRead);
-                            }
-                            
-                            System.out.println("Server " + sServerAdd + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has uploaded file \"" + sFileName + "\".");
                         } catch (IOException e) {
-                            System.err.println("I/O ERROR: " + e.getMessage());
+                            System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
                         }
                     }
                 }
                 
             } catch (IOException e) {
-                System.err.println("I/O ERROR: " + e.getMessage());
+                System.err.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] I/O ERROR: " + e.getMessage());
             }
         } while (bContinue);
     }

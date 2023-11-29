@@ -10,6 +10,8 @@ import java.net.ServerSocket;
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.util.InputMismatchException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class FileExchangeSystem_Server {
     // Function to prompt user for serverport number
@@ -56,18 +58,19 @@ public class FileExchangeSystem_Server {
         String sServerAdd;
         ServerSocket ssServer;
         ArrayList<String> sAliasList = new ArrayList<>();
+        DateTimeFormatter dtfTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"); // Date/Time formatter for logging purposes
         
         // Establish server socket
         try {
             ssServer = new ServerSocket(nServerPort);
             sServerAdd = ssServer.getInetAddress().getHostAddress();
-            System.out.println("Server " + sServerAdd + ":" + nServerPort + " - Listening to port " + nServerPort + ".");
+            System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + ":" + nServerPort + " - Listening to port " + nServerPort + ".");
             
             // Listen for client connections
             while (true) {
                 // Accept incoming client connection
                 Socket socEndpoint = ssServer.accept();
-                System.out.println("Server " + sServerAdd + ":" + nServerPort + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has connected.");
+                System.out.println("[" + LocalDateTime.now().format(dtfTimeFormat) + "] Server " + sServerAdd + ":" + nServerPort + " - Client at " + socEndpoint.getRemoteSocketAddress() + " has connected.");
                 
                 // Place client connection into a separate File Exchange System Connection thread
                 FileExchangeSystem_Connection fescConnection = new FileExchangeSystem_Connection(socEndpoint, sServerAdd, nServerPort, sAliasList);

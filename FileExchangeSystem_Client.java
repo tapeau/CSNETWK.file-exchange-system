@@ -233,7 +233,7 @@ public class FileExchangeSystem_Client {
                             if (nFileSize == -1) {
                                 System.out.println("ERROR: The requested file does not exist in the File Exchange server.");
                             } else {
-                                // Create a file with the name sFileName
+                                // TODO: COMPLETE REWORK
                                 FileOutputStream fosFile = new FileOutputStream(sFileName);
                                 
                                 // Receive file byte buffer from server and write it to the local created file
@@ -242,6 +242,8 @@ public class FileExchangeSystem_Client {
                                 while ((bytesRead = disInput.read(byFileBuffer)) != -1) {
                                     fosFile.write(byFileBuffer, 0, bytesRead);
                                 }
+                                
+                                fosFile.close();
                                 System.out.println("File \"" + sFileName + "\" has been successfully downloaded.");
                             }
                         } catch (IOException e) {
@@ -381,6 +383,9 @@ public class FileExchangeSystem_Client {
                     } else if (sServerAdd.isEmpty() || nServerPort == -1) {
                         System.out.println("ERROR: You have not connected to any File Exchange server during this session.");
                     } else {
+                        // Reopen client socket
+                        socEndpoint = new Socket();
+                        
                         // Reconnect socket to previously-connected server, and if successful, reconnect the input and output streams too
                         if (connectSocket(socEndpoint, sServerAdd, nServerPort)) {
                             try {
@@ -432,6 +437,7 @@ public class FileExchangeSystem_Client {
                                 // Send the buffered file contents to the client
                                 dosOutput.write(byFileBuffer, 0, byFileBuffer.length);
                                 dosOutput.flush();
+                                
                                 System.out.println("File \"" + sFileName + "\" has been successfully uploaded to the server.");
                             }
                         } catch (IOException e) {
