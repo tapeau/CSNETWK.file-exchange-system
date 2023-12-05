@@ -11,6 +11,7 @@ from datetime import datetime
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP Socket 
 buffer = 4096  # buffer for files and messages
+server_directory = os.path.abspath("ServerFolder")
 
 # to display time logs
 time_format = "%Y-%m-%d %H:%M:%S"
@@ -24,7 +25,7 @@ def ping():
     for user in clients:
         print(f"Pinging user {user} : ", end="")
         ping_req = {'command': 'ping'}
-        server_socket.sendto(json.dumps(ping_req).encode(), user) #ping if still connected
+        server_socket.sendto(json.dumps(ping_req).encode(), user) # ping if still connected
         time.sleep(0.3)
         try:
             server_socket.recvfrom(buffer)
@@ -52,11 +53,32 @@ def processClients(userInput):
     message = json.loads(userInput.decode())
     command = message['command'] 
     
+
+        # ip = message['ip']
+        # port = message['port'] 
+
+        # try:
+        #     # Attempt to create a temporary socket and connect to the provided IP and port
+        #     test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #     test_socket.settimeout(3)  # Checks to see if it exists
+        #     test_socket.connect((ip, port))
+        #     test_socket.close()  # Close the test socket if connection successful
+
+        #     # Connection successful
+        #     connectionState = True
+
+        # except socket.timeout:
+        #     # Connection attempt timed out
+        #     connectionState = False
+
+        # if connectionState is False:
+        #     print(f"[{current_time}] ({address}) attempted connection")
+        #     jsonData = {'command': 'error', 'message': "ERROR: No server with that ip and port exists"}
+        # else:
+
      # A client joins the server
     if command == "join":
-        # print(f"Before Join : {clients}")
         clients.update({address : None})
-        # print(f"After Join : {clients}")
         print(f"[{current_time}] Client with IP Address: {address} has connected to the server")
         jsonData = {'command': 'all', 'message': f"A user at {address} has connected to the server"}
 
@@ -76,10 +98,7 @@ def processClients(userInput):
         jsonData = {'command': 'all', 'message': message}
 
         # Deletes it in the list
-        
-        print(f"Before Delete : {clients}")
         del clients[address]
-        print(f"Before Delete : {clients}")
 
         for client_address, alias in clients.items():
             if client_address != address:
@@ -92,15 +111,15 @@ def processClients(userInput):
         
         # If they are registered already
         if clients[address] != None:
-            print(f"{address} ({clients[address]}) Attempted registration")
+            print(f"[{current_time}] Client ({clients[address]}) attempted re-registration")
             jsonData = {'command': 'error', 'message': "ERROR: You are already registered in the system"}
         # If another client has registered with that name
         elif alias in clients.values():
-            print(f"{address} alias registration failed")
+            print(f"[{current_time}] Client ({clients[address]}) alias registration failed")
             jsonData = {'command': 'error', 'message': f"ERROR: {alias} is already taken in this server"}
         else:
             clients[address] = alias
-            print(f"You have successfully registered to the server with the alias: {alias} at {address}")
+            print(f"[{current_time}] You have successfully registered to the server with the alias: {alias} at {address}")
             jsonData = {'command': 'success', 'given' : 'register' , 'message': f"Welcome to the server {alias}!"}
             jsonData2 = {'command': 'all', 'message': f"A user registered with the alias: {alias} at {address}"}
             for client_address, alias in clients.items():
@@ -111,17 +130,16 @@ def processClients(userInput):
     
     # Display the contents of the server folder
     elif command == "dir":
-
         print(f"[{current_time}] Client {clients[address]} has requested to see the available server files")
         # Name of where server files are stored
-        file_list = os.listdir('ServerFolder')
+        filelist = os.listdir('ServerFolder')
 
-        if not file_list:
+        if not filelist:
             # If the directory is empty
             jsonData = {'command': 'error', 'message': f"There are no files currently saved in this Server"}
             server_socket.sendto(json.dumps(message).encode(), address)
         else:
-            jsonData = {'command': 'success', 'message': f"Here are the list of files: {file_list}!"}
+            jsonData = {'command': 'success', 'message': f"Here are the list of files: {filelist}!"}
             jsonData2 = {'command': 'all', 'message': f"Client {clients[address]} sees the server files"}
 
             for client_address, client_alias in clients.items():
@@ -131,13 +149,60 @@ def processClients(userInput):
 
         server_socket.sendto(json.dumps(jsonData).encode(), address)
 
+    # A client attempts to download a file
+    elif command == "get":
+        filename = message['filename']
+        filelist = os.listdir('ServerFolder')
+        
+        # If the requested file is not within the server folder
+        if filename not in filelist:
+            print(f"[{current_time}] Client ({clients[address]}) attempts to download a file that does not exist")
+            jsonData = {'command': 'error', 'message': "ERROR: There are no files in the server with that name"}
+        else:
+            try:
+                print(f"[{current_time}] Client {clients[address]} has downloaded file '{filename}'")
+                jsonData = {'command': 'success', 'message': f"'{filename}' has been downloaded successfully in your default Downloads folder"}
+                jsonData2 = {'command': 'all', 'message': f"Client {clients[address]} has downloaded file '{filename}'"}
+            
+            except Exception as e:
+                print(f"Error downloading file '{filename}': {str(e)}")
+                jsonData = {'command': 'error', 'message': f"Error downloading file '{filename}'"}
+                server_socket.sendto(json.dumps(jsonData).encode(), address)
+            
+            for client_address, alias in clients.items():
+                if client_address != address:
+                    if alias is not None:  # Only sends the message to registered clients
+                        server_socket.sendto(json.dumps(jsonData2).encode(), client_address)
+        server_socket.sendto(json.dumps(jsonData).encode(), address)
+
+    elif command == "store":
+        filename = message['filename']
+        
+        # If the file being sent doesn't exist
+        if not os.path.exists(filename):
+            print(f"[{current_time}] Client ({clients[address]}) attempts to upload a file that does not exist")
+            jsonData = {'command': 'error', 'message': "ERROR: File does not exist. Check your directory"}
+        else:
+            try:
+                print(f"[{current_time}] Client {clients[address]} has uploaded file '{filename}'")
+                jsonData = {'command': 'success', 'message': f"'{filename}' has been uploaded successfully into the Server"}
+                jsonData2 = {'command': 'all', 'message': f"Client {clients[address]} has uploaded file '{filename}'"}
+            
+            except Exception as e:
+                print(f"Error uploading file '{filename}': {str(e)}")
+                jsonData = {'command': 'error', 'message': f"Error uploading file '{filename}'"}
+                server_socket.sendto(json.dumps(jsonData).encode(), address)
+            
+            for client_address, alias in clients.items():
+                if client_address != address:
+                    if alias is not None:  # Only sends the message to registered clients
+                        server_socket.sendto(json.dumps(jsonData2).encode(), client_address)
+        server_socket.sendto(json.dumps(jsonData).encode(), address)
+
     # Send message to all
     elif command == "all":
-        if clients[address] == None:
-            print(f"{address} Attempted /all without being registered")
-            jsonData = {'command': 'error', 'message': "ERROR: Please register first before messaging"}
-            server_socket.sendto(json.dumps(jsonData).encode(), address)
-            return
+        
+        print(f"[{current_time}] Client ({clients[address]}) sends a message to all")
         message = f"{clients[address]}: {message['message']}"
         print(f"{address} > {message}")
         message_data = {'command': 'all', 'message': message}
@@ -151,13 +216,8 @@ def processClients(userInput):
         message = message['message']
         sender = clients[address]
         
-        if clients[address] == None:
-            print(f"{address} Attempted /msg without being registered")
-            jsonData = {'command': 'error', 'message': "ERROR: Please register first before messaging"}
-            server_socket.sendto(json.dumps(jsonData).encode(), address)
-            return
-        elif clients[address] == alias:
-            print(f"{address} Attempted /msg to themselves")
+        if clients[address] == alias:
+            print(f"Client {clients[address]} attempted /msg to themselves")
             jsonData = {'command': 'error', 'message': "ERROR: You cannot message yourself"}
             server_socket.sendto(json.dumps(jsonData).encode(), address)
             return
