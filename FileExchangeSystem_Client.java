@@ -13,13 +13,9 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class FileExchangeSystem_Client {
     // Function to display Help page - accessed with '/?' command
@@ -57,12 +53,12 @@ public class FileExchangeSystem_Client {
     // Function to connect a socket to a server given IPv4 address and port number
     public static boolean connectSocket(Socket soc, String ipAddress, int port) {
         try {
-            System.out.println("Connecting to the File Exchange Server at " + ipAddress + ":" + port);
+            System.out.println("Connecting to server at " + ipAddress + ":" + port);
             
             // Connect socket
             soc.connect(new InetSocketAddress(ipAddress, port), 6000); // Timeout after 6000 ms (6 seconds)
             
-            System.out.println("Connection to the File Exchange Server at " + soc.getRemoteSocketAddress() + " is successful!");
+            System.out.println("Connected to server at " + soc.getRemoteSocketAddress());
             return true;
         } catch (SocketTimeoutException e) {
             // Close client socket if connection timed out
@@ -99,12 +95,12 @@ public class FileExchangeSystem_Client {
         System.out.println("Please connect to a server to start...\n");
         System.out.println("To get a list of all recognized commands, enter \"/?\"");
         
-        // Declare variables 
+        // Declare variables
         String sServerAdd = "";
-        String prevServer = "";
+        String sServerAdd_p = "";
         String sClientAlias = "";
         int nServerPort = -1;
-        int prevPort = -1;
+        int nServerPort_p = -1;
         boolean bContinue = true;
         Socket socEndpoint = new Socket();
         DataInputStream disInput = null;
@@ -240,8 +236,7 @@ public class FileExchangeSystem_Client {
                                 System.out.println("ERROR: The requested file does not exist in the File Exchange server.");
                             } else {
                                 // Create local file
-                                String downloadPath = System.getProperty("user.home") + "/Downloads/" + sFileName;
-                                FileOutputStream fosFile = new FileOutputStream(downloadPath);
+                                FileOutputStream fosFile = new FileOutputStream(sFileName);
                                 
                                 // Receive file contents from server in a buffer and write it to local file
                                 byte[] byFileBuffer = new byte[4096];
@@ -251,7 +246,7 @@ public class FileExchangeSystem_Client {
                                     nFileSize -= bytesRead;
                                 }
                                 
-                                System.out.println("File \"" + sFileName + "\" has been successfully downloaded to your Downloads directory");
+                                System.out.println("File \"" + sFileName + "\" has been successfully downloaded.");
                             }
                         } catch (IOException e) {
                             System.err.println("I/O ERROR: " + e.getMessage());
@@ -305,9 +300,6 @@ public class FileExchangeSystem_Client {
                                     try {
                                         disInput = new DataInputStream(socEndpoint.getInputStream());
                                         dosOutput = new DataOutputStream(socEndpoint.getOutputStream());
-
-                                        prevServer = sServerAdd;
-                                        prevPort = nServerPort;
                                     } catch (IOException e) {
                                         System.err.println("I/O ERROR: " + e.getMessage());
                                     }
@@ -335,7 +327,15 @@ public class FileExchangeSystem_Client {
                             // Reset client alias
                             sClientAlias = "";
                             
-                            System.out.println("Disconnected from server at " + sServerAdd + ":" + nServerPort + ". Thank you!");
+                            // Store credentials of current server
+                            sServerAdd_p = sServerAdd;
+                            nServerPort_p = nServerPort;
+                            
+                            // Reset server credentials in use
+                            sServerAdd = "";
+                            nServerPort = -1;
+                            
+                            System.out.println("Disconnected from server at " + sServerAdd + ":" + nServerPort + ".");
                         } catch (IOException e) {
                             System.err.println("I/O ERROR: " + e.getMessage());
                         }
@@ -365,7 +365,7 @@ public class FileExchangeSystem_Client {
                             
                             // Evaluate server response
                             switch (cResponse) {
-                                case '/' -> System.out.println("You have successfully registered to the server with the alias " + sClientAlias + ". Welcome user " + sClientAlias + "!");
+                                case '/' -> System.out.println("You have successfully registered to the server with the alias " + sClientAlias + ".");
                                 
                                 case ':' -> {
                                     System.out.println("ERROR: The alias " + sClientAlias + " is already taken in this server.");
@@ -390,14 +390,14 @@ public class FileExchangeSystem_Client {
                     // Check if (1) the client is already connected to a server, and (2) the client previously connected to a server
                     if (socEndpoint.isClosed() == false) {
                         System.out.println("ERROR: You are already connected to a File Exchange server.");
-                    } else if (prevServer.isEmpty() || prevPort == -1) {
+                    } else if (sServerAdd_p.isEmpty() || nServerPort_p == -1) {
                         System.out.println("ERROR: You have not connected to any File Exchange server during this session.");
                     } else {
                         // Reopen client socket
                         socEndpoint = new Socket();
                         
                         // Reconnect socket to previously-connected server, and if successful, reconnect the input and output streams too
-                        if (connectSocket(socEndpoint, prevServer, prevPort)) {
+                        if (connectSocket(socEndpoint, sServerAdd_p, nServerPort_p)) {
                             try {
                                 disInput = new DataInputStream(socEndpoint.getInputStream());
                                 dosOutput = new DataOutputStream(socEndpoint.getOutputStream());
@@ -410,8 +410,6 @@ public class FileExchangeSystem_Client {
                 
                 // '/store' command
                 case "/store" -> {
-                    DateTimeFormatter dtfTimeFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
                     // Check if (1) the client is connected to a server, (2) the client is registered to the server
                     if (socEndpoint.isClosed()) {
                         System.out.println("ERROR: You are not connected to any File Exchange server.");
@@ -421,23 +419,14 @@ public class FileExchangeSystem_Client {
                         System.out.println("ERROR: You have not entered any file name.\n"
                                 + "Command format:\t/store [filename]");
                     } else {
-                        // Get file name from the directory
-                        String sFilePath = scInput.nextLine();
-                        sFilePath = sFilePath.trim(); 
-
-                        Path path = Paths.get(sFilePath);
-                        String sFileName = path.getFileName().toString();
+                        // Get file name
+                        String sFileName = scInput.next();
                         
                         try {
                             // Find entered file in the local directory
                             File filToSend = new File(sFileName);
-
-                            // Uses the file path, if the file name isn't enough
-                            if (filToSend.exists() == false) {
-                                filToSend = new File(sFilePath); 
-                            }
                             
-                            // If file truly does not exist, throw an error, otherwise send to server
+                            // If file does not exist, throw an error, otherwise send to server
                             if (filToSend.exists() == false) {
                                 System.out.println("ERROR: The file you entered does not exist.");
                             } else {
@@ -449,7 +438,7 @@ public class FileExchangeSystem_Client {
                                 
                                 // After sending the size of the file, then send the actual contents of the file
                                 // First convert the file into a FileInputStream object
-                                try (FileInputStream fisFile = new FileInputStream(sFilePath)) {
+                                try (FileInputStream fisFile = new FileInputStream(sFileName)) {
                                     // Set transfer buffer to 4 MB at a time
                                     byte[] byFileBuffer = new byte[4096];
                                     int bytesRead;
@@ -459,7 +448,7 @@ public class FileExchangeSystem_Client {
                                         dosOutput.write(byFileBuffer, 0, bytesRead);
                                     }
                                     
-                                    System.out.println(sClientAlias + "[" + LocalDateTime.now().format(dtfTimeFormat) + "]: File \"" + sFileName + "\" has been successfully uploaded to the server.");
+                                    System.out.println("File \"" + sFileName + "\" has been successfully uploaded to the server.");
                                     
                                 } catch (IOException e) {
                                     System.err.println("I/O ERROR: " + e.getMessage());

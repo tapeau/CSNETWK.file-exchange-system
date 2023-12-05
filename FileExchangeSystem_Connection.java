@@ -14,9 +14,6 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 
 public class FileExchangeSystem_Connection extends Thread {
     // Client socket of the connection
