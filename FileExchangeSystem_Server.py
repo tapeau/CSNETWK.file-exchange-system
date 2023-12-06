@@ -52,29 +52,6 @@ def validPort(nServerPort):
 def processClients(userInput):
     message = json.loads(userInput.decode())
     command = message['command'] 
-    
-
-        # ip = message['ip']
-        # port = message['port'] 
-
-        # try:
-        #     # Attempt to create a temporary socket and connect to the provided IP and port
-        #     test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #     test_socket.settimeout(3)  # Checks to see if it exists
-        #     test_socket.connect((ip, port))
-        #     test_socket.close()  # Close the test socket if connection successful
-
-        #     # Connection successful
-        #     connectionState = True
-
-        # except socket.timeout:
-        #     # Connection attempt timed out
-        #     connectionState = False
-
-        # if connectionState is False:
-        #     print(f"[{current_time}] ({address}) attempted connection")
-        #     jsonData = {'command': 'error', 'message': "ERROR: No server with that ip and port exists"}
-        # else:
 
      # A client joins the server
     if command == "join":
@@ -87,6 +64,10 @@ def processClients(userInput):
             if client_address != address:
                 if alias is not None:  # Only sends the message to registered clients
                     server_socket.sendto(json.dumps(jsonData).encode(), client_address)
+
+        # Sends a confirmation that they have successfully connected to the server
+        jsonData = {'command': 'success'}
+        server_socket.sendto(json.dumps(jsonData).encode(), address)
     
     # A client leaves the server
     elif command == "leave":
@@ -94,7 +75,7 @@ def processClients(userInput):
         if clients[address] is None:
             message = "Unregistered user disconnected from the server"
         else:
-            message = f"User {clients[address]} disconnected from the server"
+            message = f"User ({address}) disconnected from the server"
         jsonData = {'command': 'all', 'message': message}
 
         # Deletes it in the list
@@ -115,11 +96,11 @@ def processClients(userInput):
             jsonData = {'command': 'error', 'message': "ERROR: You are already registered in the system"}
         # If another client has registered with that name
         elif alias in clients.values():
-            print(f"[{current_time}] Client ({clients[address]}) alias registration failed")
+            print(f"[{current_time}] Client ({address}) alias registration failed")
             jsonData = {'command': 'error', 'message': f"ERROR: {alias} is already taken in this server"}
         else:
             clients[address] = alias
-            print(f"[{current_time}] You have successfully registered to the server with the alias: {alias} at {address}")
+            print(f"[{current_time}] A user has registered to the server with the alias: {alias} at {address}")
             jsonData = {'command': 'success', 'given' : 'register' , 'message': f"Welcome to the server {alias}!"}
             jsonData2 = {'command': 'all', 'message': f"A user registered with the alias: {alias} at {address}"}
             for client_address, alias in clients.items():
@@ -161,7 +142,7 @@ def processClients(userInput):
         else:
             try:
                 print(f"[{current_time}] Client {clients[address]} has downloaded file '{filename}'")
-                jsonData = {'command': 'success', 'message': f"'{filename}' has been downloaded successfully in your default Downloads folder"}
+                jsonData = {'command': 'success', 'message': f"'{filename}' has been downloaded successfully in your default Downloads folder", 'type': 'get', 'filename': f'{filename}'}
                 jsonData2 = {'command': 'all', 'message': f"Client {clients[address]} has downloaded file '{filename}'"}
             
             except Exception as e:
@@ -175,6 +156,7 @@ def processClients(userInput):
                         server_socket.sendto(json.dumps(jsonData2).encode(), client_address)
         server_socket.sendto(json.dumps(jsonData).encode(), address)
 
+    # Upload a fiel into the server folder
     elif command == "store":
         filename = message['filename']
         
@@ -185,7 +167,7 @@ def processClients(userInput):
         else:
             try:
                 print(f"[{current_time}] Client {clients[address]} has uploaded file '{filename}'")
-                jsonData = {'command': 'success', 'message': f"'{filename}' has been uploaded successfully into the Server"}
+                jsonData = {'command': 'success', 'message': f"'{filename}' has been uploaded successfully into the Server", 'type': 'store', 'filename': f'{filename}'}
                 jsonData2 = {'command': 'all', 'message': f"Client {clients[address]} has uploaded file '{filename}'"}
             
             except Exception as e:
@@ -243,7 +225,7 @@ print("------------------------------")
 print("FILE EXCHANGE SYSTEM - SERVER")
 print("------------------------------")
 print("Welcome!\n")
-# Server loop
+# Server loop that can only end when the sevrer is manually closed
 while True:
     try:
         # Declare variables
@@ -268,7 +250,7 @@ while True:
     except Exception as e:
         print(f"ERROR: {str(e)}\n")
 
-# This loop checks client activities
+# This loop checks client activities and handles connection issues froms server
 while True:
     try: 
         userInput, address = server_socket.recvfrom(buffer)
@@ -279,7 +261,7 @@ while True:
         ping()   
             
     except Exception as e: # Other errors
-        print(f"Error: {e}")
+        print(f"ERROR: {e}")
     
     finally: # Always runs per loop
         for user in disconnected_clients:

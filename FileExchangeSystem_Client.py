@@ -5,7 +5,6 @@
 import socket
 import threading
 import json
-import time
 import ipaddress
 import os
 
@@ -19,9 +18,6 @@ server_directory = os.path.abspath("ServerFolder")
 # Determins whether the client is connected to the server
 isConnected = False 
 isRegistered = False 
-isGet = False
-isStore = False
-isRegisterCheck = False   
 
 server_address = None
 
@@ -39,7 +35,7 @@ def validPort(nServerPort):
     except ValueError:
         return False
 
-def read_server_file_and_save(filename):
+def download(filename):
     global server_directory
 
     # Read the file from the server folder
@@ -52,12 +48,14 @@ def read_server_file_and_save(filename):
         client_file.write(file_content)
 
 
-def upload_to_server_folder(filename):
+def upload(filename):
     global server_directory
     
+    # Read the file from the directory
     with open(os.path.join(os.getcwd(), filename), 'rb') as upload_file:
         file_content = upload_file.read()
 
+    # Write the file into the server folder
     with open(os.path.join(server_directory, filename), 'wb') as server_file:
         server_file.write(file_content)
 
@@ -66,9 +64,6 @@ def toServer(userInput):
     global isConnected
     global isRegistered
     global server_address
-    global isGet 
-    global isStore
-    global isRegisterCheck
     
     if not userInput.startswith('/'):
         print(f"ERROR: {userInput} is not a valid command. Type /? for the list of available commands.")
@@ -88,10 +83,34 @@ def toServer(userInput):
                 
                     # Send the "join" command to the server
                     print(f"Attempting to connect to the File Exchange Server at {server_address}")
-                    client_socket.sendto(json.dumps({"command": "join", "ip":params[0], "port":params[1]}).encode(), server_address)
-                    print("Connection to the File Exchange Server is successful! Welcome!")
+                    client_socket.sendto(json.dumps({"command": "join"}).encode(), server_address)
 
-                    isConnected = True
+                    client_socket.settimeout(3)
+
+                    try:
+                        acknowledgement = client_socket.recvfrom(buffer)
+                        data = json.loads(acknowledgement[0].decode())
+ 
+                        if data['command'] == "success":
+                            print("Connection to the File Exchange Server is successful! Welcome!")
+                            isConnected = True
+                            client_socket.settimeout(None)
+
+                    except socket.timeout:
+                        print("ERROR: Connection attempt timed out. Please check the server availability and try again.")
+                        server_address = None
+                        return
+
+                    except ConnectionResetError:
+                        print("ERROR: Received unexpected data from the server. Please check the port number")
+                        server_address = None
+                        return
+
+                    except Exception as e:
+                        print(f"ERROR: {str(e)}")
+                        server_address = None
+                        return
+
                 except Exception as e:
                     print(f"ERROR: Check IP Address and Server Port format. {str(e)}")
                     server_address = None
@@ -107,8 +126,7 @@ def toServer(userInput):
                 client_socket.sendto(json.dumps({"command":"leave"}).encode(), server_address)
                 print(f"Disconnected from server at {server_address}. Thank you!")
                 isConnected = False
-                isRegistered = False
-                isRegisterCheck = False 
+                isRegistered = False 
                 server_address = None
         else:
             print('ERROR: Please see if you are connected to a server first')
@@ -121,8 +139,13 @@ def toServer(userInput):
                 else:
                     client_socket.sendto(json.dumps({"command":"register", "alias":params[0]}).encode(), server_address)
                     
-                    # print(f"{isRegisterCheck} | {isRegistered}")
-                    if isRegisterCheck == True:
+                    acknowledgement = client_socket.recvfrom(buffer)
+                    data = json.loads(acknowledgement[0].decode())
+                    message = data['message']
+ 
+                    print(f">\n{message}") 
+
+                    if data['command'] == "success":
                         isRegistered = True
             else:
                 print('ERROR: You are already registered')
@@ -150,13 +173,9 @@ def toServer(userInput):
 
                     try:
                         client_socket.sendto(json.dumps({"command":"get", "filename":params[0]}).encode(), server_address)
-
-                        if isGet == True:
-                            read_server_file_and_save(params[0])
-
+                        # The code that uses the file functions in fromServer
                     except Exception as e:
-                        print(f"ERROR: Could not download '{params[0]}': {str(e)}")
-                        isGet = False
+                        return
             else:
                 print('ERROR: Please see if you are a registered user first')
         else:
@@ -170,13 +189,9 @@ def toServer(userInput):
                 else:
                     try:
                         client_socket.sendto(json.dumps({"command":"store", "filename":params[0]}).encode(), server_address)
-                        
-                        if isStore == True:
-                            upload_to_server_folder(params[0])
-
+                        # The code that uses the file functions in fromServer
                     except Exception as e:
-                        print(f"ERROR: Could not upload '{params[0]}': {str(e)}")
-                        isStore = False
+                        return
             else:
                 print('ERROR: Please see if you are a registered user first')
         else:
@@ -225,14 +240,6 @@ def toServer(userInput):
 
 # Processes commands received from the server
 def fromServer(data):
-    global isGet 
-    global isStore
-    global isRegisterCheck
-
-    isGet = False
-    isStore = False
-    isRegisterCheck = False
-
     command = data['command'] 
     
     # Acknowledge ping from server
@@ -253,27 +260,33 @@ def fromServer(data):
     # Return success message
     elif command == "success":
         message = data['message']
-        isGet = True
-        isStore = True
-        isRegisterCheck = True
-    
+
+        if 'filename' in data and 'type' in data:
+            # Handles files
+            if data['type'] == "store":
+                upload(data['filename'])
+            elif data['type'] == "get":
+                download(data['filename'])
+        
     print(f">\n{message}\n> ", end="")      
 
 # Function thats being run in a thread
 def receive_messages():
     global isConnected
+    message = None
     
     while True:
         if isConnected:
-            try:
-                message = client_socket.recvfrom(buffer)
-                data = json.loads(message[0].decode())
-                fromServer(data)
-            except ConnectionResetError:
-                print("ERROR: Connection to the File Exchange Server terminated. Disconnecting.")
-                isConnected = False
-            except Exception as e:
-                print(f"ERROR: {str(e)}")
+            if isRegistered: # Majority of the features are locked behind a registered client
+                try:
+                    message = client_socket.recvfrom(buffer)
+                    data = json.loads(message[0].decode())
+                    fromServer(data)
+                except ConnectionResetError:
+                    print("ERROR: Connection to the File Exchange Server terminated. Disconnecting.")
+                    isConnected = False
+                except Exception as e:
+                    print(f"ERROR Test: {str(e)}")
 
 # Start a thread to continuously receive and print messages from the server
 file_thread = threading.Thread(target = receive_messages)
