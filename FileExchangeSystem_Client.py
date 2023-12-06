@@ -1,6 +1,6 @@
 # Machine Project Group 10
-# TAPIA, John Lorenzo N.
 # ARGAMOSA, Daniel Cedric S.
+# TAPIA, John Lorenzo N.
 
 import socket
 import threading
@@ -102,7 +102,7 @@ def toServer(userInput):
                         return
 
                     except ConnectionResetError:
-                        print("ERROR: Received unexpected data from the server. Please check the port number")
+                        print("ERROR: Received unexpected data from the server. Please check the input paramaeters")
                         server_address = None
                         return
 
@@ -226,7 +226,7 @@ def toServer(userInput):
     
     elif command == "/?":
         print("/?                           Display information about all valid commands")
-        print("/all [message]               Send a message to every registere alias")
+        print("/all [message]               Send a message to every registered alias")
         print("/dir                         Display a directory of the files in the File Exchange Server")
         print("/get [filename.filetype]     Download a file of name [filename] from the File Exchange Server")
         print("/join [ip_address] [port]    Connects to the File Exchange Server")

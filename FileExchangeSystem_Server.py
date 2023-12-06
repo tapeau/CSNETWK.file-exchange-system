@@ -1,6 +1,6 @@
 # Machine Project Group 10
-# TAPIA, John Lorenzo N.
 # ARGAMOSA, Daniel Cedric S.
+# TAPIA, John Lorenzo N.
 
 import socket
 import time

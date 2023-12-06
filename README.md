@@ -2,8 +2,8 @@
 A simple command-line file exchange system developed as Machine Project for DLSU CSNETWK Course (T1 2023-2024)
 
 ## Members
-- John Lorenzo Tapia
 - Daniel Cedric Argamosa
+- John Lorenzo Tapia
 
 ## Running the server
 1. Open a Terminal interface in the directory of the repository
