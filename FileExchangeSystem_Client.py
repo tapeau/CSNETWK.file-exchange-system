@@ -102,7 +102,7 @@ def toServer(userInput):
                         return
 
                     except ConnectionResetError:
-                        print("ERROR: Received unexpected data from the server. Please check the input paramaeters")
+                        print("ERROR: Received unexpected data from the server. Please check the input parameters.")
                         server_address = None
                         return
 
