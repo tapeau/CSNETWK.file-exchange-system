@@ -101,7 +101,7 @@ def processClients(userInput):
         else:
             clients[address] = alias
             print(f"[{current_time}] A user has registered to the server with the alias: {alias} at {address}")
-            jsonData = {'command': 'success', 'given' : 'register' , 'message': f"Welcome to the server {alias}!"}
+            jsonData = {'command': 'success', 'message': f"Welcome to the server {alias}!"}
             jsonData2 = {'command': 'all', 'message': f"A user registered with the alias: {alias} at {address}"}
             for client_address, alias in clients.items():
                 if client_address != address:
@@ -118,7 +118,6 @@ def processClients(userInput):
         if not filelist:
             # If the directory is empty
             jsonData = {'command': 'error', 'message': f"There are no files currently saved in this Server"}
-            server_socket.sendto(json.dumps(message).encode(), address)
         else:
             jsonData = {'command': 'success', 'message': f"Here are the list of files: {filelist}!"}
             jsonData2 = {'command': 'all', 'message': f"Client {clients[address]} sees the server files"}
@@ -211,7 +210,7 @@ def processClients(userInput):
                     server_socket.sendto(json.dumps(message_data).encode(), client_address)
                     print(f"Message from {address} to {client_address}")
                     message = f"[To {alias}]: {message}"
-                    jsonData = {'command': 'success', 'given' : 'msg' , 'message': message}
+                    jsonData = {'command': 'success', 'message': message}
                 except:
                     server_socket.sendto(json.dumps(jsonData).encode(), address)
                     jsonData = {'command': 'error' , 'message': "ERROR: Alias not found"}

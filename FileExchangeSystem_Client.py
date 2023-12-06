@@ -286,7 +286,7 @@ def receive_messages():
                     print("ERROR: Connection to the File Exchange Server terminated. Disconnecting.")
                     isConnected = False
                 except Exception as e:
-                    print(f"ERROR Test: {str(e)}")
+                    print(f"ERROR: {str(e)}")
 
 # Start a thread to continuously receive and print messages from the server
 file_thread = threading.Thread(target = receive_messages)
